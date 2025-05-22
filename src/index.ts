@@ -1,7 +1,7 @@
 // src/index.ts
 import express from "express";
 import cors from "cors";
-import blogApi from "./routes/blog.routes.ts";
+import blogApi from "./routes/blog.routes";
 
 const app = express();
 app.use(cors());

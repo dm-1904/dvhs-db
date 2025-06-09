@@ -1,13 +1,14 @@
 // src/index.ts
 import express from "express";
 import cors from "cors";
-import blogApi from "./routes/blog.routes";
+import blogRoutes from "./routes/blog.routes";
+import mlsRoutes from "./routes/mls.routes";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use("/", blogApi); // → /api/posts/…
+// app.use("/", blogApi); // → /api/posts/…
 app.use("/api", blogRoutes);
 app.use("/api", mlsRoutes);
 

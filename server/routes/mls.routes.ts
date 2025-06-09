@@ -1,8 +1,10 @@
-// import { Router } from "express";
-import fetch from "node-fetch";
+import { Router } from "express";
+// import fetch from "node-fetch";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { LeadUpload } from "../../../common/schemas/leadUploadSchema";
+
+const router = Router();
 import express from "express";
 
 dotenv.config();
@@ -18,6 +20,8 @@ const API_URL = process.env.SPARK_API_URL;
 const API_ACCESS_TOKEN = process.env.SPARK_API_ACCESS_TOKEN;
 
 async function sparkGet(path: string) {
+  const fetch = (await import("node-fetch")).default;
+
   const resp = await fetch(`${API_URL}${path}`, {
     headers: {
       Authorization: `OAuth ${API_ACCESS_TOKEN}`,
@@ -163,3 +167,5 @@ app.get("/api/lead", async (req, res) => {
 app.listen(PORT, () =>
   console.log(`MLS proxy is running on http://localhost:${PORT}`)
 );
+
+export default router;

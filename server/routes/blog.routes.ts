@@ -9,16 +9,14 @@ const blogPostSchema = z.object({
   title: z.string().min(5).max(160),
   description: z.string().min(10).max(300),
   author: z.string().min(3).max(100),
-  date: z.string(),
-  coverImg: z.string(),
-  slug: z
+  date: z
     .string()
-    .regex(
-      /^\/blog\/[a-z0-9]+$/i,
-      "slug must start with /blog/ and be kebab-case"
-    ),
+    .regex(/^\d{4}-\d{2}-\d{2}$/) // basic ISO date
+    .transform((str) => new Date(`${str}T00:00:00Z`)), // -> Date
+  coverImg: z.string(),
+  slug: z.string(),
   content: z.string().min(10).max(10000),
-  tags: z.array(z.string()),
+  tags: z.array(z.string()).default([]),
 });
 type BlogPostInput = z.infer<typeof blogPostSchema>;
 
@@ -45,19 +43,19 @@ router.get("/posts/:id", async (req, res, next) => {
 
 router.post("/posts", async (req, res, next) => {
   try {
-    /* 1. validate body */
-    const parse = blogPostSchema.safeParse(req.body);
-    if (!parse.success) {
-      return res.status(400).json({ errors: parse.error.format() });
+    const parsed = blogPostSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ errors: parsed.error.format() });
     }
 
-    const data: BlogPostInput = parse.data;
-
-    /* 2. write to DB (handle unique slug) */
-    const created = await prisma.blogPost.create({ data });
+    // Ensure all required fields are present and types match BlogPostCreateInput
+    const { title, description, author, date, coverImg, slug, content, tags } =
+      parsed.data;
+    const created = await prisma.blogPost.create({
+      data: { title, description, author, date, coverImg, slug, content, tags },
+    });
     res.status(201).json(created);
   } catch (err: any) {
-    /* duplicate slug constraint */
     if (err.code === "P2002") {
       return res.status(409).json({ error: "Slug already exists" });
     }

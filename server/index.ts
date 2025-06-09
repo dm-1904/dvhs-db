@@ -7,7 +7,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use("/api", blogApi); // → /api/posts/…
+app.use("/", blogApi); // → /api/posts/…
+app.use("/api", blogRoutes);
+app.use("/api", mlsRoutes);
 
 /* rudimentary error handler */
 app.use((err: any, _req: any, res: any, _next: any) => {

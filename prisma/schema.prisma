@@ -127,5 +127,48 @@ model Lead {
   notes                   String? @map("Notes")
   notes2                  String? @map("Notes 2")
 
+  doNotCall              Boolean? @map("Do Not Call")
+  calls                  Call[] @relation("LeadCalls")
+
   @@map("Lead")
+}
+
+model CallWindow {
+  id                      String @id @default(uuid())
+  dayOfWeek               Int
+  startTime               DateTime
+  endTime                 DateTime
+  createdAt               DateTime @default(now())
+}
+
+model Call {
+  id                      String @id @default(uuid())
+  twilioSid               String @unique
+  lead                    Lead @relation("LeadCalls", fields: [leadId], references: [id])
+  leadId                  String
+
+  direction               CallDirection
+  status                  CallStatus @default(PENDING)
+  startedAt               DateTime @default(now())
+  answeredAt              DateTime?
+  completedAt             DateTime?
+  durationSec             Int?
+  recordingUrl            String?
+}
+
+enum CallDirection {
+  FORWARDED
+  INBOUND
+  OUTBOUND
+}
+
+enum CallStatus {
+  PENDING
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  NO_ANSWER
+  BUSY
+  FAILED
+  CANCELED
 }

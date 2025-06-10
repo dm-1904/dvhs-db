@@ -23,9 +23,9 @@ type BlogPostInput = z.infer<typeof blogPostSchema>;
 // Blog Posts
 router.get("/posts", async (_req, res, next) => {
   try {
-    console.log("Fetching all blog posts");
+    // console.log("Fetching all blog posts");
     const posts = await prisma.blogPost.findMany({ orderBy: { date: "desc" } });
-    console.log(posts.length);
+    // console.log(posts.length);
     res.json(posts);
   } catch (err) {
     next(err);

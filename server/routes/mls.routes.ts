@@ -5,13 +5,13 @@ import { PrismaClient } from "@prisma/client";
 import { LeadUpload } from "../../../common/schemas/leadUploadSchema";
 
 const router = Router();
-import express from "express";
+// import express from "express";
 
 dotenv.config();
 
 console.log("Starting MLS proxy server…");
 
-const app = express();
+// const app = express();
 const prisma = new PrismaClient();
 // const router = Router();
 
@@ -20,7 +20,7 @@ const API_URL = process.env.SPARK_API_URL;
 const API_ACCESS_TOKEN = process.env.SPARK_API_ACCESS_TOKEN;
 
 async function sparkGet(path: string) {
-  const fetch = (await import("node-fetch")).default;
+  const fetch = globalThis.fetch;
 
   const resp = await fetch(`${API_URL}${path}`, {
     headers: {
@@ -62,7 +62,7 @@ interface ListingSummary {
 /* ------------------------------------------------------------------ */
 /*  GET /api/listings                                                  */
 /* ------------------------------------------------------------------ */
-app.get("/api/listings", async (req, res) => {
+router.get("/listings", async (req, res) => {
   try {
     const city = ((req.query.city as string) || "").replace(/'/g, "''");
     const state = ((req.query.state as string) || "AZ").toUpperCase();
@@ -85,6 +85,7 @@ app.get("/api/listings", async (req, res) => {
     const path = `/listings?_filter=${filter}&$select=${SELECT}&$top=${top}`;
 
     /* ------------- call Spark --------------------------------------- */
+    console.log("Spark query filter:", decodeURIComponent(path));
     const json = (await sparkGet(path)) as { D?: { Results?: SparkListing[] } };
 
     const results: ListingSummary[] = (json.D?.Results ?? []).map(
@@ -108,6 +109,7 @@ app.get("/api/listings", async (req, res) => {
 
     res.json({ results });
   } catch (err) {
+    console.error("Spark listings error:", err);
     const e = err as Error & { status?: number };
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -116,7 +118,7 @@ app.get("/api/listings", async (req, res) => {
 /* ------------------------------------------------------------------ */
 /*  GET /api/listings/:Id/photo  – first photo (640 px)                */
 /* ------------------------------------------------------------------ */
-app.get("/api/listings/:Id/photo", async (req, res) => {
+router.get("/listings/:Id/photo", async (req, res) => {
   try {
     const { Id } = req.params;
     const json = (await sparkGet(`/listings/${Id}/photos?$top=1`)) as {
@@ -133,7 +135,7 @@ app.get("/api/listings/:Id/photo", async (req, res) => {
 /* ------------------------------------------------------------------ */
 /*  GET /api/lead                                                    */
 /* ------------------------------------------------------------------ */
-app.get("/api/lead", async (req, res) => {
+router.get("/lead", async (req, res) => {
   const leads: LeadUpload[] = req.body;
   // Filter out leads missing required fields (example: firstName, lastName, email)
   const validLeads = leads.filter(
@@ -164,8 +166,8 @@ app.get("/api/lead", async (req, res) => {
 /* ------------------------------------------------------------------ */
 /*  Boot                                                               */
 /* ------------------------------------------------------------------ */
-app.listen(PORT, () =>
-  console.log(`MLS proxy is running on http://localhost:${PORT}`)
-);
+// app.listen(PORT, () =>
+//   console.log(`MLS proxy is running on http://localhost:${PORT}`)
+// );
 
 export default router;

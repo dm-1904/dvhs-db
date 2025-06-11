@@ -123,6 +123,7 @@ model Lead {
   optedInEmail            Boolean? @map("Opted In Email")
   optedInText             Boolean? @map("Opted In Text")
 
+  attemptCount            Int? @default(0)
   pipelineStage           String? @map("Pipeline Stage")
   notes                   String? @map("Notes")
   notes2                  String? @map("Notes 2")

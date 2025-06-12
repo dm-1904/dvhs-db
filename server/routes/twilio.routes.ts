@@ -24,21 +24,49 @@ const prospectingMessages = [
 ];
 
 // Upload CSV-parsed leades -> POST /api/leads/upload
-router.post("/leads/upload", async (req, res, next) => {
+// router.post("/leads/upload", async (req, res, next) => {
+//   try {
+//     const leads = req.body;
+//     const inserted = await prisma.lead.createMany({
+//       data: leads,
+//       skipDuplicates: true,
+//     });
+//     res.json({ inserted: inserted.count });
+//   } catch (err) {
+//     console.error("Error uploading leads in twilio.routes.ts:", err);
+//     res.status(500).send({ err: "Server error" });
+//   }
+// });
+router.post("/leads/upload", async (req, res) => {
   try {
-    const leads = req.body as {
-      firstName: string;
-      lastName: string;
-      email: string;
-      phone: string;
-    }[];
+    const leads = req.body;
+
+    // Get valid agent and partner IDs from DB
+    const agents = await prisma.agent.findMany({ select: { id: true } });
+    const partners = await prisma.partner.findMany({ select: { id: true } });
+    const agentIds = new Set(agents.map((a) => a.id));
+    const partnerIds = new Set(partners.map((p) => p.id));
+
+    // Filter out leads with invalid foreign key references
+    const validLeads = leads.filter((lead) => {
+      const validAgent =
+        !lead.agentAssigned || agentIds.has(lead.agentAssigned);
+      const validPartner =
+        !lead.partnerAssigned || partnerIds.has(lead.partnerAssigned);
+      return validAgent && validPartner;
+    });
+
+    const skipped = leads.length - validLeads.length;
+
     const inserted = await prisma.lead.createMany({
-      data: leads,
+      data: validLeads,
       skipDuplicates: true,
     });
-    res.json({ inserted: inserted.count });
+
+    res.json({ inserted: inserted.count, skipped });
   } catch (err) {
-    next(err);
+    console.error("❌ Upload error:", err);
+    res.status(500).send("Server error");
   }
 });
 
@@ -60,7 +88,7 @@ router.post("/twiml/lead", (req, res) => {
   const leadId = req.query.leadId as string;
   const twiml = new twilio.twiml.VoiceResponse();
 
-  twiml.play(); ///////////////////////////// INCLUDE LOGIC TO PLAY A MESSAGE HERE
+  twiml.play("https://lead-caller-3988.twil.io/prospecting%20audio%20.mp3"); // Prospecting audio URL
   twiml.pause({ length: 10 });
   twiml.redirect(`/api/twiml/forward?leadId=${leadId}`);
   res.type("text/xml").send(twiml.toString());
@@ -204,7 +232,14 @@ async function startCallQueue() {
       machineDetection: "Enable",
       machineDetectionTimeout: 10,
       statusCallback: `${BASE_URL}/api/twilio/status`,
-      statusCallbackEvent: ["completed", "failed", "no-answer"],
+      statusCallbackEvent: [
+        "answered",
+        "completed",
+        "failed",
+        "no-answer",
+        "busy",
+        "canceled",
+      ],
       statusCallbackMethod: "POST",
     });
 

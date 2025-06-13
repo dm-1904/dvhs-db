@@ -190,7 +190,14 @@ router.post("/twilio/status", async (req, res) => {
         `❌ Marked Lead ${call.lead.firstName} ${call.lead.lastName} as Invalid Number (Call ID: ${callId})`
       );
     } else {
-      await sendProspectingText(call.lead);
+      console.log(
+        `⏳ Waiting 60 seconds to send follow-up text to ${call.lead.firstName}...`
+      );
+      setTimeout(() => {
+        sendProspectingText(call.lead).catch((err) =>
+          console.error("❌ Error sending delayed prospecting text:", err)
+        );
+      }, 32 * 1000); //
     }
   }
 

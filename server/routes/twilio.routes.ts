@@ -2,6 +2,12 @@ import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 import twilio from "twilio";
 
+// curl comand to pause or resume calls
+// Pause calls
+// curl -X POST http://localhost:4000/api/calls/pause
+// Resume calls
+// curl -X POST http://localhost:4000/api/calls/resume
+
 const prisma = new PrismaClient();
 const router = Router();
 const client = twilio(process.env.TWILIO_SID!, process.env.TWILIO_AUTH_TOKEN!);
@@ -9,6 +15,7 @@ const twilioNumber = process.env.TWILIO_NUMBER!;
 const agentPhone = process.env.DAMON_PHONE!;
 const BASE_URL = process.env.BASE_URL!;
 const callWaiters = new Map<string, () => void>();
+let isCallQueuePaused = false;
 
 const prospectingMessages = [
   "Hi {{name}}, this is Damon Ryon (your local Real Estate expert). I saw your info come in and wanted to quickly connect. Are you still exploring homes in the area?",
@@ -170,7 +177,21 @@ router.post("/twilio/status", async (req, res) => {
     ["no-answer", "busy", "failed", "canceled"].includes(status);
 
   if (isFailedOutbound) {
-    await sendProspectingText(call.lead);
+    // mark as invalid if totally unreachable
+    if (status === "failed") {
+      await prisma.lead.update({
+        where: { id: call.leadId },
+        data: {
+          pipelineStage: "Invalid Number",
+          notes: "Call failed - number unreachable or disconnected.",
+        },
+      });
+      console.log(
+        `❌ Marked Lead ${call.lead.firstName} ${call.lead.lastName} as Invalid Number (Call ID: ${callId})`
+      );
+    } else {
+      await sendProspectingText(call.lead);
+    }
   }
 
   // Resume the queue if this call was being awaited
@@ -183,13 +204,49 @@ router.post("/twilio/status", async (req, res) => {
   res.sendStatus(200);
 });
 
+router.post("/calls/pause", (req, res) => {
+  isCallQueuePaused = true;
+  console.log("⏹️ Outbound calling paused by user.");
+  res.send("Outbound calling has been paused.");
+});
+
+router.post("/calls/resume", (req, res) => {
+  isCallQueuePaused = false;
+  console.log("▶️ Outbound calling resumed by user.");
+  res.send("Outbound calling has been resumed.");
+});
+
 // Helper: queue runner - one call at a time
 async function startCallQueue() {
+  if (isCallQueuePaused) {
+    console.log("🚫 Call queue is paused. Ignoring request.");
+    return;
+  }
+
+  // for front end
+  //   <button
+  //   onClick={async () => {
+  //     await fetch("/api/calls/pause", { method: "POST" });
+  //     alert("Calls paused.");
+  //   }}
+  // >
+  //   Pause Calls
+  // </button>
+
+  // <button
+  //   onClick={async () => {
+  //     await fetch("/api/calls/resume", { method: "POST" });
+  //     alert("Calls resumed.");
+  //   }}
+  // >
+  //   Resume Calls
+  // </button>
+
   const leads = await prisma.lead.findMany({
     where: {
       doNotCall: false,
       pipelineStage: {
-        notIn: ["Contacted", "Attempted Unresponsive"],
+        notIn: ["Contacted", "Attempted Unresponsive", "Invalid Number"],
       },
     },
     orderBy: { registered: "asc" },

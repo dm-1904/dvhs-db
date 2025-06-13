@@ -40,15 +40,31 @@ cron.schedule("* * * * *", async () => {
   const day = in15.getDay().toString();
   const currentMin = in15.getHours() * 60 + in15.getMinutes();
 
+  const dayIndex = in15.getDay();
+  const dayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const dayName = dayNames[dayIndex];
+  const futureTime = in15.toTimeString().slice(0, 5);
+  const actualTime = now.toTimeString().slice(0, 5);
+
   const windowsToday = callSchedule[day] || [];
-  console.log(`Day: ${day}, Minutes: ${currentMin}`);
+  console.log(
+    `Day: ${day}(${dayName}), Minutes: ${currentMin}(${futureTime}) actual: ${actualTime}`
+  );
   console.log(
     "Windows Today:",
     windowsToday.map(
       ([start, end]) => `${formatTime(start)} - ${formatTime(end)}`
     )
   );
-  console.log("sending sms to:", agentPhone);
+  // console.log("sending sms to:", agentPhone);
   const match = windowsToday.find(([startMin]) => currentMin === startMin);
 
   if (match) {

@@ -1,12 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  // output   = "../generated/prisma"
 }
 
 datasource db {
@@ -22,139 +15,126 @@ model BlogPost {
   date        DateTime
   coverImg    String
   slug        String   @unique
-  content     String   @db.Text
+  content     String
   tags        String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
 model Agent {
-  id                      String   @id @default(cuid())
-  firstName               String @map("First Name")
-  lastName                String @map("Last Name")
-  email                   String  @unique @map("Email Address")
-  phone                   String @map("Phone Number")
-  address                 String? @map("Address")
-  city                    String? @map("City")
-  state                   String? @map("State")
-  zip                     String? @map("Zip Code")
-
-  agentType              String? @map("Agent Type")
-  agentStatus            String? @map("Agent Status")
-  agentLicense           String? @map("Agent License")
+  id                     String    @id @default(cuid())
+  firstName              String    @map("First Name")
+  lastName               String    @map("Last Name")
+  email                  String    @unique @map("Email Address")
+  phone                  String    @map("Phone Number")
+  address                String?   @map("Address")
+  city                   String?   @map("City")
+  state                  String?   @map("State")
+  zip                    String?   @map("Zip Code")
+  agentType              String?   @map("Agent Type")
+  agentStatus            String?   @map("Agent Status")
+  agentLicense           String?   @map("Agent License")
   agentLicenseExpiration DateTime? @map("Agent License Expiration")
-
-  pipelineStage           String? @map("Pipeline Stage")
-  notes                   String? @map("Notes")
-
-  leads                   Lead[] @relation("AgentLeads")
-  partners                Partner[] @relation("AgentPartners")
+  pipelineStage          String?   @map("Pipeline Stage")
+  notes                  String?   @map("Notes")
+  leads                  Lead[]    @relation("AgentLeads")
+  partners               Partner[] @relation("AgentPartners")
 
   @@map("Agent")
 }
+
 model Partner {
-  id                      String   @id @default(cuid())
-  firstName               String @map("First Name")
-  lastName                String @map("Last Name")
-  email                   String  @unique @map("Email Address")
-  phone                   String @map("Phone Number")
-  address                 String? @map("Address")
-  city                    String? @map("City")
-  state                   String? @map("State")
-  zip                     String? @map("Zip Code")
-
-  partnerType             String? @map("Partner Type")
-  partnerStatus           String? @map("Partner Status")
-  partnerLicense          String? @map("Partner License")
+  id                       String    @id @default(cuid())
+  firstName                String    @map("First Name")
+  lastName                 String    @map("Last Name")
+  email                    String    @unique @map("Email Address")
+  phone                    String    @map("Phone Number")
+  address                  String?   @map("Address")
+  city                     String?   @map("City")
+  state                    String?   @map("State")
+  zip                      String?   @map("Zip Code")
+  partnerType              String?   @map("Partner Type")
+  partnerStatus            String?   @map("Partner Status")
+  partnerLicense           String?   @map("Partner License")
   partnerLicenseExpiration DateTime? @map("Partner License Expiration")
-
-  pipelineStage           String? @map("Pipeline Stage")
-  notes                   String? @map("Notes")
-  leads                   Lead[] @relation("PartnerLeads")
-  agents                  Agent[] @relation("AgentPartners")
+  pipelineStage            String?   @map("Pipeline Stage")
+  notes                    String?   @map("Notes")
+  leads                    Lead[]    @relation("PartnerLeads")
+  agents                   Agent[]   @relation("AgentPartners")
 
   @@map("Partner")
 }
 
 model Lead {
-  agent                   Agent? @relation("AgentLeads", fields: [agentAssigned], references: [id])
-  partner                 Partner? @relation("PartnerLeads", fields: [partnerAssigned], references: [id])
-  id                      String   @id @default(cuid())
-  firstName               String @map("First Name")
-  lastName                String @map("Last Name")
-  email                   String  @unique @map("Email Address")
-  status                  String?  @map("Status")
-  labels                  String? @map("Labels")
-  qualityScore            Int? @map("Quality Score")
-  phone                   String @map("Phone Number")
-  address                 String? @map("Address")
-  city                    String? @map("City")
-  state                   String? @map("State")
-  zip                     String? @map("Zip Code")
-
-  agentAssigned           String? @map("Agent Assigned")
-  partnerAssigned         String? @map("Partner Assigned")
+  id                      String    @id @default(cuid())
+  firstName               String    @map("First Name")
+  lastName                String    @map("Last Name")
+  email                   String    @unique @map("Email Address")
+  status                  String?   @map("Status")
+  labels                  String?   @map("Labels")
+  qualityScore            Int?      @map("Quality Score")
+  phone                   String    @map("Phone Number")
+  address                 String?   @map("Address")
+  city                    String?   @map("City")
+  state                   String?   @map("State")
+  zip                     String?   @map("Zip Code")
+  agentAssigned           String?   @map("Agent Assigned")
+  partnerAssigned         String?   @map("Partner Assigned")
   registered              DateTime? @map("Registered")
-  source                  String? @map("Source")
+  source                  String?   @map("Source")
   lastLogin               DateTime? @map("Last Login")
-  loginCount              Int? @map("Login Count")
-  lastTouchType           String? @map("Last Touch Type")
+  loginCount              Int?      @map("Login Count")
+  lastTouchType           String?   @map("Last Touch Type")
   lastTouchDate           DateTime? @map("Last Touch Date")
-  lastTouchNotes          String? @map("Last Touch Notes")
-
-  averagePrice            Int? @map("Average Price")
-  medianPrice             Int? @map("Median Price")
-  favoriteCity            String? @map("Favorite City")
-  timeframe               String? @map("Timeframe")
-
-  propertyInquiries       Int? @map("Property Inquiries")
-  favoriteProperties      Int? @map("Favorite Properties")
-  propertyViews           Int? @map("Property Views")
-  propertyFavorites       Int? @map("Property Favorites")
-  savedSearches           Int? @map("Saved Searches")
-
-  preQualifiedForMortgage Boolean? @map("Pre-Qualified for Mortgage")
-  houseToSell             Boolean? @map("House to Sell")
-  firstTimeBuyer          Boolean? @map("First Time Buyer")
-
-  ip                      String? @map("IP")
-  buyerSeller             String? @map("Buyer/Seller")
-
-  optedInEmail            Boolean? @map("Opted In Email")
-  optedInText             Boolean? @map("Opted In Text")
-
-  attemptCount            Int? @default(0)
-  pipelineStage           String? @map("Pipeline Stage")
-  notes                   String? @map("Notes")
-  notes2                  String? @map("Notes 2")
-
-  doNotCall              Boolean? @map("Do Not Call")
-  calls                  Call[] @relation("LeadCalls")
+  lastTouchNotes          String?   @map("Last Touch Notes")
+  averagePrice            Int?      @map("Average Price")
+  medianPrice             Int?      @map("Median Price")
+  favoriteCity            String?   @map("Favorite City")
+  timeframe               String?   @map("Timeframe")
+  propertyInquiries       Int?      @map("Property Inquiries")
+  favoriteProperties      Int?      @map("Favorite Properties")
+  propertyViews           Int?      @map("Property Views")
+  propertyFavorites       Int?      @map("Property Favorites")
+  savedSearches           Int?      @map("Saved Searches")
+  preQualifiedForMortgage Boolean?  @map("Pre-Qualified for Mortgage")
+  houseToSell             Boolean?  @map("House to Sell")
+  firstTimeBuyer          Boolean?  @map("First Time Buyer")
+  ip                      String?   @map("IP")
+  buyerSeller             String?   @map("Buyer/Seller")
+  optedInEmail            Boolean?  @map("Opted In Email")
+  optedInText             Boolean?  @map("Opted In Text")
+  pipelineStage           String?   @map("Pipeline Stage")
+  notes                   String?   @map("Notes")
+  notes2                  String?   @map("Notes 2")
+  doNotCall               Boolean?  @map("Do Not Call")
+  attemptCount            Int?      @default(0)
+  calls                   Call[]    @relation("LeadCalls")
+  agent                   Agent?    @relation("AgentLeads", fields: [agentAssigned], references: [id])
+  partner                 Partner?  @relation("PartnerLeads", fields: [partnerAssigned], references: [id])
 
   @@map("Lead")
 }
 
 model CallWindow {
-  id                      String @id @default(uuid())
-  dayOfWeek               Int
-  startTime               DateTime
-  endTime                 DateTime
-  createdAt               DateTime @default(now())
+  id        String   @id @default(uuid())
+  dayOfWeek Int
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
 }
 
 model Call {
-  id                      String @id @default(uuid())
-  twilioSid               String @unique
-  lead                    Lead @relation("LeadCalls", fields: [leadId], references: [id])
-  leadId                  String
-
-  direction               CallDirection
-  status                  CallStatus @default(PENDING)
-  startedAt               DateTime @default(now())
-  answeredAt              DateTime?
-  completedAt             DateTime?
-  durationSec             Int?
-  recordingUrl            String?
+  id           String        @id @default(uuid())
+  twilioSid    String        @unique
+  leadId       String
+  direction    CallDirection
+  status       CallStatus    @default(PENDING)
+  startedAt    DateTime      @default(now())
+  answeredAt   DateTime?
+  completedAt  DateTime?
+  durationSec  Int?
+  recordingUrl String?
+  lead         Lead          @relation("LeadCalls", fields: [leadId], references: [id])
 }
 
 enum CallDirection {

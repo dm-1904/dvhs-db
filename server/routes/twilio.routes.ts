@@ -23,47 +23,33 @@ const prospectingMessages = [
   "I’ve reached out a few times without a response. I’ll mark your file as Unresponsive for now. If anything changes, I’d still be happy to help. Take care!",
 ];
 
-// Upload CSV-parsed leades -> POST /api/leads/upload
-// router.post("/leads/upload", async (req, res, next) => {
-//   try {
-//     const leads = req.body;
-//     const inserted = await prisma.lead.createMany({
-//       data: leads,
-//       skipDuplicates: true,
-//     });
-//     res.json({ inserted: inserted.count });
-//   } catch (err) {
-//     console.error("Error uploading leads in twilio.routes.ts:", err);
-//     res.status(500).send({ err: "Server error" });
-//   }
-// });
 router.post("/leads/upload", async (req, res) => {
   try {
     const leads = req.body;
+    console.log("Received leads:", leads.length);
 
-    // Get valid agent and partner IDs from DB
     const agents = await prisma.agent.findMany({ select: { id: true } });
     const partners = await prisma.partner.findMany({ select: { id: true } });
     const agentIds = new Set(agents.map((a) => a.id));
     const partnerIds = new Set(partners.map((p) => p.id));
 
-    // Filter out leads with invalid foreign key references
-    const validLeads = leads.filter((lead) => {
-      const validAgent =
-        !lead.agentAssigned || agentIds.has(lead.agentAssigned);
-      const validPartner =
-        !lead.partnerAssigned || partnerIds.has(lead.partnerAssigned);
-      return validAgent && validPartner;
-    });
-
-    const skipped = leads.length - validLeads.length;
+    const sanitizedLeads = leads.map((lead) => ({
+      ...lead,
+      agentAssigned: agentIds.has(lead.agentAssigned)
+        ? lead.agentAssigned
+        : null,
+      partnerAssigned: partnerIds.has(lead.partnerAssigned)
+        ? lead.partnerAssigned
+        : null,
+    }));
 
     const inserted = await prisma.lead.createMany({
-      data: validLeads,
+      data: sanitizedLeads,
       skipDuplicates: true,
     });
 
-    res.json({ inserted: inserted.count, skipped });
+    console.log("✅ Leads inserted:", inserted.count);
+    res.json({ inserted: inserted.count });
   } catch (err) {
     console.error("❌ Upload error:", err);
     res.status(500).send("Server error");

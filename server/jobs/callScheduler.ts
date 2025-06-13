@@ -3,7 +3,7 @@ import cron from "node-cron";
 
 const client = twilio(process.env.TWILIO_SID!, process.env.TWILIO_AUTH_TOKEN!);
 const twilioNumber = process.env.TWILIO_NUMBER!;
-const agentPhone = process.env.DAMON_PHONE!;
+const agentPhone = process.env.DAMON_NUMBER!;
 
 type TimeWindow = [number, number]; // [startMin, endMin] in minutes from midnight
 
@@ -28,17 +28,27 @@ const callSchedule: Record<string, TimeWindow[]> = {
     // Thursday
     [510, 690], // 8:30 - 11:30
     [960, 1050], // 16:00 - 18:00
+    [1094, 1140], // 18:05 - 19:00
   ],
 };
 
 // every minute, check for a window starting in 15 minutes
 cron.schedule("* * * * *", async () => {
+  console.log("Checking for upcoming call windows...");
   const now = new Date();
   const in15 = new Date(now.getTime() + 15 * 60 * 1000);
-  const day = in15.getDay();
+  const day = in15.getDay().toString();
   const currentMin = in15.getHours() * 60 + in15.getMinutes();
 
   const windowsToday = callSchedule[day] || [];
+  console.log(`Day: ${day}, Minutes: ${currentMin}`);
+  console.log(
+    "Windows Today:",
+    windowsToday.map(
+      ([start, end]) => `${formatTime(start)} - ${formatTime(end)}`
+    )
+  );
+  console.log("sending sms to:", agentPhone);
   const match = windowsToday.find(([startMin]) => currentMin === startMin);
 
   if (match) {

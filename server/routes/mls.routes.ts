@@ -64,29 +64,51 @@ interface ListingSummary {
 /* ------------------------------------------------------------------ */
 router.get("/listings", async (req, res) => {
   try {
-    const city = ((req.query.city as string) || "").replace(/'/g, "''");
-    const state = ((req.query.state as string) || "AZ").toUpperCase();
-    const top = Number(req.query.top) || 25;
+    const {
+      city = "",
+      state = "AZ",
+      top = "25",
+      priceMin,
+      priceMax,
+      bedsMin,
+      bathsMin,
+      sqftMin,
+      propertyTypes, // comma-separated string
+    } = req.query;
 
     if (!city) {
-      res.status(400).json({ error: "city query-param is required" });
-      return;
+      return res.status(400).json({ error: "city query-param is required" });
     }
 
-    /* ------------- build Spark query -------------------------------- */
-    const filter = encodeURIComponent(
-      `City eq '${city}' and StateOrProvince eq '${state}' and PropertyClass ne 'Rental'`
-    );
+    const filterParts: string[] = [
+      `City eq '${city}'`,
+      `StateOrProvince eq '${state}'`,
+      `PropertyClass ne 'Rental'`,
+    ];
 
+    if (priceMin) filterParts.push(`ListPrice ge ${priceMin}`);
+    if (priceMax) filterParts.push(`ListPrice le ${priceMax}`);
+    if (bedsMin) filterParts.push(`BedsTotal ge ${bedsMin}`);
+    if (bathsMin) filterParts.push(`BathsTotal ge ${bathsMin}`);
+    if (sqftMin) filterParts.push(`LivingArea ge ${sqftMin}`);
+
+    if (propertyTypes) {
+      const types = (propertyTypes as string)
+        .split(",")
+        .map((type) => `PropertySubType eq '${type}'`);
+      if (types.length > 0) filterParts.push(`(${types.join(" or ")})`);
+    }
     const SELECT =
       "ListingKey,ListPrice,BedsTotal,BathsTotal,LivingArea," +
       "MlsStatus,UnparsedAddress";
 
-    const path = `/listings?_filter=${filter}&$select=${SELECT}&$top=${top}`;
+    const filter = filterParts.join(" and ");
+    const path = `/listings?_filter=${encodeURIComponent(
+      filter
+    )}&$select=${SELECT}&$top=${top}`;
 
-    /* ------------- call Spark --------------------------------------- */
-    console.log("Spark query filter:", decodeURIComponent(path));
-    const json = (await sparkGet(path)) as { D?: { Results?: SparkListing[] } };
+    console.log("Spark query path:", decodeURIComponent(path));
+    const json = await sparkGet(path);
 
     const results: ListingSummary[] = (json.D?.Results ?? []).map(
       (l: SparkListing) => {
@@ -102,10 +124,6 @@ router.get("/listings", async (req, res) => {
         };
       }
     );
-
-    /* ------------- dev-only: show one full record ------------------- */
-    // console.log("results", results.slice(0, 5));
-    // localStorage.setItem("lastResults", JSON.stringify(results));
 
     res.json({ results });
   } catch (err) {

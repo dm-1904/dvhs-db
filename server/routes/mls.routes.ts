@@ -73,17 +73,19 @@ router.get("/listings", async (req, res) => {
       bedsMin,
       bathsMin,
       sqftMin,
-      propertyTypes, // comma-separated string
+      propertyTypes, // comma-separated list from the client
+      sort = "desc", // **NEW**  "asc" | "desc"
     } = req.query;
 
     if (!city) {
       return res.status(400).json({ error: "city query-param is required" });
     }
 
+    /* ---------- build _filter ------------------------------------ */
     const filterParts: string[] = [
       `City eq '${city}'`,
       `StateOrProvince eq '${state}'`,
-      `PropertyClass ne 'Rental'`,
+      `PropertyClass ne 'Rental'`, // never show rentals
     ];
 
     if (priceMin) filterParts.push(`ListPrice ge ${priceMin}`);
@@ -95,35 +97,45 @@ router.get("/listings", async (req, res) => {
     if (propertyTypes) {
       const types = (propertyTypes as string)
         .split(",")
-        .map((type) => `PropertySubType eq '${type}'`);
-      if (types.length > 0) filterParts.push(`(${types.join(" or ")})`);
+        .map((t) => `PropertySubType eq '${t}'`);
+      if (types.length) filterParts.push(`(${types.join(" or ")})`);
     }
+
+    const FILTER = encodeURIComponent(filterParts.join(" and "));
     const SELECT =
       "ListingKey,ListPrice,BedsTotal,BathsTotal,LivingArea," +
       "MlsStatus,UnparsedAddress";
 
-    const filter = filterParts.join(" and ");
-    const path = `/listings?_filter=${encodeURIComponent(
-      filter
-    )}&$select=${SELECT}&$top=${top}`;
+    /* ---------- ORDER BY clause ---------------------------------- */
+    const order = sort === "desc" ? "asc" : "desc"; // sanitise
+    const ORDERBY = `_orderby=${
+      order === "desc" ? "-ListPrice" : "+ListPrice"
+    }`;
 
-    console.log("Spark query path:", decodeURIComponent(path));
-    const json = await sparkGet(path);
+    /* ---------- final Spark path --------------------------------- */
+    const path =
+      `/listings?_filter=${FILTER}` +
+      `&$select=${SELECT}` +
+      `&${ORDERBY}` +
+      `&$top=${top}`;
 
-    const results: ListingSummary[] = (json.D?.Results ?? []).map(
-      (l: SparkListing) => {
-        const s = l.StandardFields;
-        return {
-          Id: l.Id,
-          ListPrice: s.ListPrice,
-          BedsTotal: s.BedsTotal,
-          BathsTotal: s.BathsTotal,
-          LivingArea: s.LivingArea,
-          MlsStatus: s.MlsStatus,
-          UnparsedAddress: s.UnparsedAddress,
-        };
-      }
-    );
+    console.log("Spark query:", decodeURIComponent(path));
+
+    /* ---------- Spark request ------------------------------------ */
+    const json = (await sparkGet(path)) as { D?: { Results?: SparkListing[] } };
+
+    const results: ListingSummary[] = (json.D?.Results ?? []).map((l) => {
+      const s = l.StandardFields;
+      return {
+        Id: l.Id,
+        ListPrice: s.ListPrice,
+        BedsTotal: s.BedsTotal,
+        BathsTotal: s.BathsTotal,
+        LivingArea: s.LivingArea,
+        MlsStatus: s.MlsStatus,
+        UnparsedAddress: s.UnparsedAddress,
+      };
+    });
 
     res.json({ results });
   } catch (err) {

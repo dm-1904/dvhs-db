@@ -64,18 +64,8 @@ interface ListingSummary {
 /* ------------------------------------------------------------------ */
 router.get("/listings", async (req, res) => {
   try {
-    const {
-      city = "",
-      state = "AZ",
-      top = "25",
-      priceMin,
-      priceMax,
-      bedsMin,
-      bathsMin,
-      sqftMin,
-      propertyTypes, // comma-separated list from the client
-      sort = "desc", // **NEW**  "asc" | "desc"
-    } = req.query;
+    const city = ((req.query.city as string) || "").trim();
+    const state = ((req.query.state as string) || "AZ").toUpperCase();
 
     if (!city) {
       return res.status(400).json({ error: "city query-param is required" });
@@ -88,36 +78,13 @@ router.get("/listings", async (req, res) => {
       `PropertyClass ne 'Rental'`, // never show rentals
     ];
 
-    if (priceMin) filterParts.push(`ListPrice ge ${priceMin}`);
-    if (priceMax) filterParts.push(`ListPrice le ${priceMax}`);
-    if (bedsMin) filterParts.push(`BedsTotal ge ${bedsMin}`);
-    if (bathsMin) filterParts.push(`BathsTotal ge ${bathsMin}`);
-    if (sqftMin) filterParts.push(`LivingArea ge ${sqftMin}`);
-
-    if (propertyTypes) {
-      const types = (propertyTypes as string)
-        .split(",")
-        .map((t) => `PropertySubType eq '${t}'`);
-      if (types.length) filterParts.push(`(${types.join(" or ")})`);
-    }
-
     const FILTER = encodeURIComponent(filterParts.join(" and "));
     const SELECT =
       "ListingKey,ListPrice,BedsTotal,BathsTotal,LivingArea," +
       "MlsStatus,UnparsedAddress";
 
-    /* ---------- ORDER BY clause ---------------------------------- */
-    const order = sort === "desc" ? "asc" : "desc"; // sanitise
-    const ORDERBY = `_orderby=${
-      order === "desc" ? "-ListPrice" : "+ListPrice"
-    }`;
-
     /* ---------- final Spark path --------------------------------- */
-    const path =
-      `/listings?_filter=${FILTER}` +
-      `&$select=${SELECT}` +
-      `&${ORDERBY}` +
-      `&$top=${top}`;
+    const path = `/listings?_filter=${FILTER}` + `&$select=${SELECT}`;
 
     console.log("Spark query:", decodeURIComponent(path));
 

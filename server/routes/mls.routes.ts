@@ -47,6 +47,7 @@ interface SparkListing {
     MlsStatus: string;
     UnparsedAddress: string;
   };
+  Media?: { Uri640?: string }[];
 }
 
 interface ListingSummary {
@@ -64,51 +65,83 @@ interface ListingSummary {
 /* ------------------------------------------------------------------ */
 router.get("/listings", async (req, res) => {
   try {
-    const city = ((req.query.city as string) || "").trim();
-    const state = ((req.query.state as string) || "AZ").toUpperCase();
+    const {
+      city,
+      state,
+      top = 100,
+      priceMin,
+      priceMax,
+      bedsMin,
+      bathsMin,
+      sqftMin,
+      den,
+      propertyTypes,
+      sort = "desc",
+    } = req.query;
 
-    if (!city) {
-      return res.status(400).json({ error: "city query-param is required" });
+    if (!city || !state) {
+      return res.status(400).json({ error: "City and state are required." });
     }
 
-    /* ---------- build _filter ------------------------------------ */
-    const filterParts: string[] = [
+    const filters: string[] = [
       `City eq '${city}'`,
       `StateOrProvince eq '${state}'`,
-      `PropertyClass ne 'Rental'`, // never show rentals
+      `PropertyClass ne 'Rental'`,
     ];
+    if (priceMin) filters.push(`ListPrice ge ${priceMin}`);
+    if (priceMax) filters.push(`ListPrice le ${priceMax}`);
+    if (bedsMin) filters.push(`BedsTotal ge ${bedsMin}`);
+    if (bathsMin) filters.push(`BathsTotal ge ${bathsMin}`);
+    if (sqftMin) filters.push(`LivingArea ge ${sqftMin}`);
+    if (den === "true") filters.push(`RoomType/any(r: r eq 'Den')`);
+    if (propertyTypes) {
+      const types = (propertyTypes as string).split(",");
+      filters.push(
+        `PropertySubType in (${types.map((t) => `'${t}'`).join(",")})`
+      );
+    }
 
-    const FILTER = encodeURIComponent(filterParts.join(" and "));
-    const SELECT =
-      "ListingKey,ListPrice,BedsTotal,BathsTotal,LivingArea," +
-      "MlsStatus,UnparsedAddress";
+    const query = `/listings?_filter=${filters.join(
+      " and "
+    )}&_select=ListingKey,StandardFields&_limit=${top}&_orderby=ListPrice ${sort}`;
 
-    /* ---------- final Spark path --------------------------------- */
-    const path = `/listings?_filter=${FILTER}` + `&$select=${SELECT}`;
+    const sparkData = await sparkGet(query);
+    const listings: any[] = sparkData?.D?.Results || sparkData?.D || [];
 
-    console.log("Spark query:", decodeURIComponent(path));
+    const results = await Promise.all(
+      listings.map(async (l) => {
+        const listingId = l.ListingKey || l.Id;
+        if (!listingId) return null;
+        let thumbnail = "";
 
-    /* ---------- Spark request ------------------------------------ */
-    const json = (await sparkGet(path)) as { D?: { Results?: SparkListing[] } };
+        try {
+          const mediaRes = await sparkGet(
+            `/listings/${listingId}/media?$top=1`
+          );
+          const first = mediaRes?.D?.Results?.[0];
+          thumbnail = first?.Uri640 || first?.Uri || "";
+        } catch (err) {
+          console.warn(`Failed to fetch media for ${listingId}`, err);
+        }
 
-    const results: ListingSummary[] = (json.D?.Results ?? []).map((l) => {
-      const s = l.StandardFields;
-      return {
-        Id: l.Id,
-        ListPrice: s.ListPrice,
-        BedsTotal: s.BedsTotal,
-        BathsTotal: s.BathsTotal,
-        LivingArea: s.LivingArea,
-        MlsStatus: s.MlsStatus,
-        UnparsedAddress: s.UnparsedAddress,
-      };
-    });
+        const f = l.StandardFields;
+        return {
+          Id: listingId,
+          ListPrice: f?.ListPrice,
+          BedsTotal: f?.BedsTotal,
+          BathsTotal: f?.BathroomsTotalInteger,
+          LivingArea: f?.LivingArea,
+          MlsStatus: f?.MlsStatus,
+          UnparsedAddress: f?.UnparsedAddress,
+          thumbnail,
+        };
+      })
+    );
 
     res.json({ results });
   } catch (err) {
     console.error("Spark listings error:", err);
-    const e = err as Error & { status?: number };
-    res.status(e.status || 500).json({ error: e.message });
+    res.status(500).json({ error: "Failed to fetch listings" });
   }
 });
 
